@@ -1,6 +1,6 @@
 
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
+
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 import logging
 
@@ -9,7 +9,7 @@ class MoveGCSFiles(BaseOperator):
 
     template_fields = ("bucket_source", "bucket_dest", "prefix", "destino", "delimiter")
 
-    @apply_defaults
+
     def __init__(self, bucket_source, bucket_dest, prefix, destino, delimiter = '.paquet' ,**kwargs):
         super().__init__(**kwargs)
         self.bucket_source = bucket_source

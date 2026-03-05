@@ -36,6 +36,35 @@ x-airflow-common:
       condition: service_healthy
 
 services:
+
+  spark-master:
+    image: docker.io/bitnami/spark:3.4.1
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+
+  spark-worker:
+    image: docker.io/bitnami/spark:3.4.1
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=6G
+      - SPARK_WORKER_CORES=4
+    depends_on:
+      - spark-master
+
+
+
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+        reservations:
+          memory: 4g
   postgres:
     image: postgres:16
     environment:

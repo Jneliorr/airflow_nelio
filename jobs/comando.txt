@@ -1,0 +1,8 @@
+gcloud storage cp arqvuivo local arquivo destino
+
+ gcloud storage cp job_pgdas_apuracao.py gs://spark-ita/jobs/job_pgdas_apuracao.py
+
+ gcloud storage cp job_pgdas_apuracao.py gs://spark-ita/jobs/job_pgdas_apuracao.py
+
+
+ $ gcloud storage cp jobs/job_dasn_filter.py gs://spark-ita/jobs/job_dasn_filter.py

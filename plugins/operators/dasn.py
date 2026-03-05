@@ -11,7 +11,6 @@ from google.oauth2 import service_account
 from google.cloud import storage
 
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
 from airflow.providers.google.cloud.hooks.gcs import GCSHook
 from airflow.models.variable import Variable
 
@@ -303,7 +302,7 @@ class ETLDasn:
 ## Funcao final de Carregamento das DASn
 class DasnOperatorGBQ(BaseOperator):
     template_fields = ("bucket_name", "prefix", "dataset")
-    @apply_defaults
+
     def __init__(self, prefix, bucket_name=None, credentials=None, dataset=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prefix = prefix
@@ -327,7 +326,7 @@ class DasnOperatorGBQ(BaseOperator):
 ## Funcao final de Carregamento das DASn
 class DasnOperatorParquet(BaseOperator):
     template_fields = ("bucket_name", "prefix", "dataset", "destination_parquet")
-    @apply_defaults
+
     def __init__(self, prefix, destination_parquet=None, bucket_name=None, credentials=None, dataset=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.prefix = prefix

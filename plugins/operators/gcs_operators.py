@@ -1,6 +1,6 @@
 
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
+
 from airflow.providers.google.cloud.hooks.gcs import GCSHook    
 from airflow.models.variable import Variable
 import logging
@@ -12,7 +12,7 @@ project_id = Variable.get('project_id')
 
 class GCSListObjectsOperators(BaseOperator): 
     template_fields = ("prefix", "bucket_name")
-    @apply_defaults 
+
     def __init__(self, prefix, bucket_name=None, gcp_conn_id='gcs_default', delimiter=None, **kwargs): 
         super().__init__(**kwargs)
         self.prefix = prefix
@@ -40,7 +40,7 @@ class GCSListObjectsOperators(BaseOperator):
 class GCSParquetToGBQ(BaseOperator):
     
     template_fields = ("bucket_name", "table_id", "dataset")
-    @apply_defaults
+
     def __init__(self,
                  prefix=None, 
                  bucket_name=None,

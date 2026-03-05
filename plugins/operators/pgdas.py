@@ -1,6 +1,6 @@
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
-from plugins.hooks.pgdas_hook import ETLPgdasHook
+
+from hooks.pgdas_hook import ETLPgdasHook
 import pandas as pd
 from google.cloud import storage
 import io
@@ -9,7 +9,7 @@ from pandas_gbq import to_gbq
 import os
 
 class PgdasETLOperator(BaseOperator):
-    @apply_defaults
+
     def __init__(self, file, destination_bucket=None, bucket_name=None, cloud=True, encoding='utf8', mode='r',
                  destination_table=None, project_id=None, credentials=None, if_exists='append', dataset=None, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -1,5 +1,5 @@
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
+
 from airflow.providers.google.cloud.hooks.gcs import GCSHook    
 
 
@@ -10,7 +10,7 @@ from zipfile import ZipFile
 
 class UnzipGCS(BaseOperator):
     template_fields = ("bucket_name", "prefix") 
-    @apply_defaults
+
     def __init__(self,bucket_name='k8s-dataita', prefix='raw/cnpj/2025-05/estabelecimentos',*args, **kwargs):   
         super().__init__(*args, **kwargs)
         self.bucket_name = bucket_name
@@ -47,7 +47,7 @@ class UnzipGCS(BaseOperator):
     
 class UnzipGCS_v2(BaseOperator):
     template_fields = ("bucket_name", "prefix") 
-    @apply_defaults
+
     def __init__(self,bucket_name='k8s-dataita', prefix='raw/cnpj/2025-05/estabelecimentos', destination='tmp', *args, **kwargs):   
         super().__init__(*args, **kwargs)
         self.bucket_name = bucket_name

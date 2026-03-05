@@ -1,6 +1,6 @@
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
-from plugins.hooks.pgdas_hook import ETLPgdasHook
+
+from hooks.pgdas_hook import ETLPgdasHook
 import pandas as pd
 from google.cloud import storage
 import io
@@ -13,7 +13,7 @@ import pyarrow.parquet as pq
 class PgdasToParquetOperator(BaseOperator):
     
     template_fields = ("destination_parquet", "bucket_name")
-    @apply_defaults
+
     def __init__(self, file, destination_parquet=None, bucket_name=None, cloud=True, encoding='utf8', mode='r', project_id=None, credentials=None, if_exists='append', *args, **kwargs):
         super().__init__(*args, **kwargs)
         #self.path_file = prefix
