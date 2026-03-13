@@ -27,6 +27,8 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - C:/Users/Nelio/OneDrive/_CINEMA/cinema_2026:/opt/airflow/cinema2026
+    - C:/Users/Nelio/OneDrive/TRE2026:/opt/airflow/TRE2026 
+    - C:/Users/Nelio/Documents:/opt/airflow/documentos 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -71,6 +73,8 @@ services:
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
       - C:/Users/Nelio/OneDrive/_CINEMA/cinema_2026:/opt/airflow/cinema2026
+      - C:/Users/Nelio/OneDrive/TRE2026:/opt/airflow/TRE2026
+      - C:/Users/Nelio/Documents:/opt/airflow/documentos 
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s

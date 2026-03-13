@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, VARCHAR, Integer,Date
 import os
 import pandas as pd
 from datetime import datetime
-import zipfile
+from operators.unzipNelio import UnzipFilesOperator
 import numpy as np
 from airflow.operators.bash import BashOperator
 
@@ -34,7 +34,11 @@ params = {
         ,type="string"
         ,description="Password para subir ao postgres")
     ,'zip_path': Param(
-        default='postgres'
+        default='/opt/airflow/TRE2026/DADOS/RJ/perfil_eleitorado_secao/zip'
+        ,type="string"
+        ,description="Password para subir ao postgres")
+    ,'unzip_path': Param(
+        default='/opt/airflow/TRE2026/DADOS/RJ/perfil_eleitorado_secao/csv'
         ,type="string"
         ,description="Password para subir ao postgres")
     }
@@ -59,3 +63,16 @@ default_args = {
 
 
 def tre():
+
+    unzip_files = UnzipFilesOperator(
+        task_id="unzip_files",
+        zip_path="{{ params.zip_path }}",
+        file_save="/tmp/unzipped_files"
+    )
+
+    # Exemplo de tarefa vazia para representar o próximo passo
+    next_step = EmptyOperator(task_id="next_step")
+
+    unzip_files >> next_step
+
+tre_dag = tre()
