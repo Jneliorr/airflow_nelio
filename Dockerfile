@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
     unzip \
+    git \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
     && apt-get update && apt-get install -y --no-install-recommends \
@@ -17,5 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 USER airflow
 
-# Instala o Selenium e o webdriver-manager para facilitar a gestão do driver
-RUN pip install --no-cache-dir selenium webdriver-manager
+# Instala o Selenium, dbt e o adaptador Postgres
+# Dica: dbt-postgres já instala o dbt-core automaticamente
+RUN pip install --no-cache-dir \
+    selenium \
+    webdriver-manager \
+    dbt-postgres \
+    astronomer-cosmos
