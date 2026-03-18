@@ -1,0 +1,26 @@
+# dbt/profiles.yml
+
+cinema: # Este nome deve ser igual ao 'profile:' dentro do dbt_project.yml do cinema
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: 172.20.0.3
+      user: postgres
+      pass: nelio  # sua senha do banco
+      port: 5432
+      dbname: cinema_RR
+      schema: public
+      threads: 3
+
+# tre: # Já deixamos pronto para o seu próximo projeto
+#   target: dev
+#   outputs:
+#     dev:
+#       type: postgres
+#       host: db
+#       user: postgres
+#       pass: nelio
+#       dbname: tre_database
+#       schema: public
+#       threads: 4
