@@ -10,3 +10,6 @@ docker ps
 docker inspect 
 
 https://www.tabnews.com.br/thiagovalle/tutorial-como-instalar-e-rodar-o-banco-postgres-no-docker
+
+
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' postgres_db

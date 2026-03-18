@@ -34,10 +34,10 @@ params = {
     #     default='lancamentos'
     #     ,type="string"
     #     ,description="Nome da Tabela para subir ao postgres")
-    # ,'database': Param(
-    #     default='cinema_RR'
-    #     ,type="string"
-    #     ,description="Nome da database para subir ao postgres")
+    ,'database': Param(
+        default='cinema_testes'
+        ,type="string"
+        ,description="Nome da database para subir ao postgres")
     # ,'user': Param(
     #     default='postgres'
     #     ,type="string"
@@ -108,8 +108,8 @@ def cinema2026():
                     print(f"Extraído: {file_name}")
 
     @task
-    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida): 
-        engine = create_engine(f"postgresql+psycopg2://postgres:nelio@172.20.0.3:5432/cinema_RR")
+    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida,database): 
+        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@172.19.0.3:5432/{database}")
         dataframe = []
         colunas_datas = ['DATA_EXIBICAO', 'SESSAO']
         colunas_inteiros = ['PUBLICO']
@@ -168,23 +168,28 @@ def cinema2026():
 
 
     @task
-    def d_cinemas_salas(caminho, caminho_saida, estados):
-        engine = create_engine(f"postgresql+psycopg2://postgres:nelio@172.20.0.3:5432/cinema_RR")
+    def d_cinemas_salas(caminho, caminho_saida, estados,database):
+        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@172.19.0.3:5432/{database}")
         colunas_datas = ['DATA_SITUACAO_SALA', 'DATA_INICIO_FUNCIONAMENTO_SALA', 'DATA_SITUACAO_COMPLEXO']
         colunas_inteiros = ['ASSENTOS_SALA','ASSENTOS_CADEIRANTES','ASSENTOS_MOBILIDADE_REDUZIDA','ASSENTOS_OBESIDADE','ACESSO_ASSENTOS_COM_RAMPA']
         df_sala = pd.read_csv(caminho, delimiter=';', dtype=str)
+        print(f"lendo: {caminho}")
         if estados:
             df_sala = df_sala[df_sala['UF_COMPLEXO'] == estados]
         for coluna in colunas_datas:
             df_sala[coluna] = pd.to_datetime(df_sala[coluna], errors='coerce', dayfirst=True)
         for coluna in colunas_inteiros:
             df_sala[coluna] = pd.to_numeric(df_sala[coluna], errors='coerce').fillna(0).astype(int)
+        print("passou tratamento de dados")
         df_sala.columns = [col.lower() for col in df_sala.columns]
+        print("passou tratamento de colunas")
         nome_arquivo_saida = os.path.join(caminho_saida, "d_cinema.csv")
+        print("salvando arquivo tratado")
         df_sala.to_csv(nome_arquivo_saida, sep=';', index=False, encoding='utf-8')
+        print(f"d_cinemas salvo com sucesso em local: {nome_arquivo_saida}")
         df_sala.to_sql("salas", engine, index=False, if_exists='replace')
-        print(f"d_cinemas salvo com sucesso em: {nome_arquivo_saida}")
-        return df_sala
+        
+        return print(f"d_cinemas salvo com sucesso no banco de dados: {database}")
 
         # df_sala = pd.read_csv(caminho, delimiter=';', dtype=str)
         # if estados:
@@ -197,8 +202,8 @@ def cinema2026():
         # return df_sala
 
     @task
-    def d_filmes(caminho, colunas,caminho_saida):
-        engine = create_engine(f"postgresql+psycopg2://postgres:nelio@172.20.0.3:5432/cinema_RR")
+    def d_filmes(caminho, colunas,caminho_saida, database):
+        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@172.19.0.3:5432/{database}")
         df_filmes = pd.read_csv(caminho, delimiter=';',dtype=str, usecols=colunas)
         df_filmes = df_filmes.drop_duplicates(subset=['cpb_roe'])
         df_filmes['nacionalidade'] = np.where(df_filmes['pais_obra'] == 'BRASIL', 'Brasileiro', 'Internacional')
@@ -206,6 +211,8 @@ def cinema2026():
         nome_arquivo_saida = os.path.join(caminho_saida, "d_filmes.csv")
         df_filmes.to_csv(nome_arquivo_saida, sep=';',index=False, encoding='utf-8')
         print(f"d_filmes salvo com sucesso em: {nome_arquivo_saida}")
+        df_filmes.to_sql("filmes", engine, index=False, if_exists='replace')
+
         return df_filmes   
         # df_filmes = pd.read_csv(caminho, delimiter=';',dtype=str, usecols=colunas)
         # df_filmes = df_filmes.drop_duplicates(subset=['CPB_ROE'])
@@ -216,8 +223,8 @@ def cinema2026():
         # return df_filmes
 
     @task
-    def lancamentos (caminhodist,caminho_saida ):
-        engine = create_engine(f"postgresql+psycopg2://postgres:nelio@172.20.0.3:5432/cinema_RR")
+    def lancamentos (caminhodist,caminho_saida,database):
+        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@172.19.0.3:5432/{database}")
         colunas_datas = ['data_lancamento_obra']
         colunas_inteiros = ['publico_total']
         colunas_moeda = ['renda_total']
@@ -240,8 +247,10 @@ def cinema2026():
             )
         nome_arquivo_saida = os.path.join(caminho_saida, "lancamentos.csv")
         df_lancamento.to_csv(nome_arquivo_saida, sep=';',index=False, encoding='utf-8')
+        df_lancamento.to_sql("lancamentos", engine, index=False, if_exists='replace')
+
         return df_lancamento
-        # engine = create_engine(f"postgresql+psycopg2://postgres:nelio@172.20.0.3:5432/cinema_RR")
+
         # df_lancamento = pd.read_csv(caminhodist, delimiter=';',dtype=str)
         # df_lancamento['PAIS_OBRA'] = np.where(df_lancamento['PAIS_OBRA'] == 'BRASIL', 'NACIONAL', 'ESTRANGEIRO')
         # nome_arquivo_saida = os.path.join(caminho_saida, "lancamentos.csv")
@@ -282,6 +291,7 @@ def cinema2026():
                 estados = "{{ params.estados }}",
                 row= None,
                 caminho_saida = "/opt/airflow/cinema2026/data/processados"
+                ,database = "{{ params.database }}"
                 )
     
 
@@ -298,7 +308,8 @@ def cinema2026():
     
     etl_cinema = d_cinemas_salas(caminho= "/opt/airflow/cinema2026/data/raw/unzip/salas-de-exibicao/salas-de-exibicao-e-complexos.csv", 
                 caminho_saida = "/opt/airflow/cinema2026/data/processados", 
-                estados = "{{ params.estados }}")
+                estados = "{{ params.estados }}"
+                ,database = "{{ params.database }}")
     
     mover_cinemas_csv = BashOperator(
     task_id='mover_salas_exibicao',
@@ -313,7 +324,8 @@ def cinema2026():
         path_save = "/opt/airflow/cinema2026/data/raw/unzip/distribuidoras")
 
     elt_lancamentos = lancamentos("/opt/airflow/cinema2026/data/raw/unzip/distribuidoras/lancamentos-comerciais-por-distribuidoras.csv",
-        "/opt/airflow/cinema2026/data/processados"
+        "/opt/airflow/cinema2026/data/processados",
+        database = "{{ params.database }}"
         )
     
     mover_distribuidoras_csv = BashOperator(
@@ -324,8 +336,11 @@ def cinema2026():
 ###-------------------------------------------------------------------------------------------------------------------------------------------------#####
 
     etl_filmes = d_filmes("/opt/airflow/cinema2026/data/processados/bilheteria_diaria_tratada.csv",
-         ['CPB_ROE', 'TITULO_FILME', 'TITULO_ORIGINAL', 'TITULO_BRASIL', 'PAIS_OBRA'],
-         "/opt/airflow/cinema2026/data/processados")
+        #  ['CPB_ROE', 'TITULO_FILME', 'TITULO_ORIGINAL', 'TITULO_BRASIL', 'PAIS_OBRA'],
+        ['cpb_roe', 'titulo_filme', 'titulo_original', 'titulo_brasil', 'pais_obra'],
+         "/opt/airflow/cinema2026/data/processados",
+         database = "{{ params.database }}"
+         )
     
 
 
