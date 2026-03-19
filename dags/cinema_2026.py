@@ -141,7 +141,7 @@ def cinema2026():
         df_bilheteria.to_sql("bilheteria", engine, index=False, if_exists='append')
         print(f"Salvo com sucesso em: {nome_arquivo_saida}")
         # dataframe = []
-        # for arquivo in os.listdir(caminho_arquivo):
+        # for arquivo in os.listdir(caminho_arquivo):as
         #     if arquivo.endswith('.csv') and anos:
         #         ano_encontrado = anos in arquivo
         #         if anos == 'TODOS' or ano_encontrado:
