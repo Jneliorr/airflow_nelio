@@ -17,6 +17,7 @@ profile_config = ProfileConfig(
 )
 
 @dag(
+    dag_id="dbt_cinema_cosmos",
     schedule=None,
     start_date=datetime(2026, 3, 18),
     catchup=False,
@@ -25,6 +26,7 @@ profile_config = ProfileConfig(
 def dbt_cinema_cosmos():
     # O Cosmos cria as tasks automaticamente aqui
     projeto_cinema = DbtDag(
+        dag_id='dbt_cinema_cosmos',
         project_config=ProjectConfig(DBT_PROJECT_PATH),
         operator_args={"install_deps": True},
         profile_config=profile_config,

@@ -12,6 +12,12 @@ import zipfile
 import numpy as np
 from airflow.operators.bash import BashOperator
 import requests
+from cosmos import DbtDag, ProjectConfig, ProfileConfig, RenderConfig
+from cosmos.profiles import PostgresUserPasswordProfileMapping
+from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, RenderConfig
+from cosmos.profiles import PostgresUserPasswordProfileMapping
+from datetime import datetime
+from pathlib import Path
 
 params = {
         "Usuario": Param(
@@ -30,26 +36,37 @@ params = {
             default='RR'
             ,type="string"
             ,description="Estado Filtrado")
-    # ,'table_name': Param(
-    #     default='lancamentos'
-    #     ,type="string"
-    #     ,description="Nome da Tabela para subir ao postgres")
-    ,'database': Param(
-        default='cinema_testes'
+    ,'senha': Param(
+        default='nelio'
         ,type="string"
-        ,description="Nome da database para subir ao postgres")
+        ,description="Senha para subir ao postgres")
+    ,'database': Param(
+        default='cinema_teste'
+        ,type="string"
+        ,enum=["cinema_teste","cinema_RR","cinema_BR","cinema_RJ"]
+        ,description="Escolher o nome do banco de dados para subir os dados tratados")
+
     ,'host': Param(
-        default="172.20.0.3"
+        default="172.19.0.2"
         ,type='string'
-        ,enum=["172.19.0.3","172.20.0.3"]
         ,description="""
-        Escolher o ip do docker 
-        """        )
-    # ,'password': Param(
-    #     default='postgres'
-    #     ,type="string"
-    #     ,description="Password para subir ao postgres")
+        Escolher o ip do docker  "172.19.0.3","172.20.0.3","172.19.0.2"
+        """        
+    )
     }
+
+# Configuração de onde o dbt está no seu Docker/Worker
+DBT_PROJECT_PATH = Path("/opt/airflow/dbt/cinema")
+
+profile_config = ProfileConfig(
+    profile_name="cinema",
+    target_name="dev",
+    profile_mapping=PostgresUserPasswordProfileMapping(
+        conn_id="postgres_default", # O ID da conexão que você cria no Airflow UI
+        profile_args={"schema": "public"},
+    ),
+)
+
 
 default_args = {
     "owner": "Nelio Cruel",
@@ -111,68 +128,48 @@ def cinema2026():
                     print(f"Extraído: {file_name}")
 
     @task
-    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida,database, host): 
-        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@{host}:5432/{database}") ##172.20.0.3
+    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida,database, senha, host):     
+        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+            ##172.20.0.3
         dataframe = []
         colunas_datas = ['DATA_EXIBICAO', 'SESSAO']
         colunas_inteiros = ['PUBLICO']
         for arquivo in os.listdir(caminho_arquivo):
             if arquivo.endswith('.csv') and anos == "" or str(anos) in arquivo:
-                # ano_encontrado = anos in arquivo
-                # if anos == 'TODOS' or ano_encontrado:
-                    caminho_completo = os.path.join(caminho_arquivo, arquivo)
-                    print(f"Processando arquivo: {caminho_completo}")
-                    df = pd.read_csv(caminho_completo, delimiter=';', dtype=str)
-                    df['NOME_ARQUIVO'] = arquivo
-                    
-                    dataframe.append(df)
-        df_bilheteria = pd.concat(dataframe, ignore_index=True)
-        if estados:
-            df_bilheteria = df_bilheteria[df_bilheteria['UF_SALA_COMPLEXO'] == estados]
-        df_bilheteria['TITULO_FILME'] = df_bilheteria.apply(lambda row: row['TITULO_BRASIL'] 
-                                                if pd.notnull(row['TITULO_BRASIL'])
-                                                else row['TITULO_ORIGINAL'], axis=1)
-        df_bilheteria.insert(1, 'TITULO_FILME', df_bilheteria.pop('TITULO_FILME'))
-        df_bilheteria = df_bilheteria[df_bilheteria['REGISTRO_SALA'].notnull()]
-        for coluna in colunas_datas:
-            df_bilheteria[coluna] = pd.to_datetime(df_bilheteria[coluna], errors='coerce', dayfirst=True)
-        for coluna in colunas_inteiros:
-            df_bilheteria[coluna] = pd.to_numeric(df_bilheteria[coluna], errors='coerce').fillna(0).astype(int)
-        df_bilheteria.columns = [col.lower() for col in df_bilheteria.columns]
+                caminho_completo = os.path.join(caminho_arquivo, arquivo)
+                print(f"Processando arquivo: {caminho_completo}")
+                df = pd.read_csv(caminho_completo, delimiter=';', dtype=str)
+                df['NOME_ARQUIVO'] = arquivo
+                if estados:
+                    df = df[df['UF_SALA_COMPLEXO'] == estados]
+                df['TITULO_FILME'] = df['TITULO_BRASIL'].fillna(df['TITULO_ORIGINAL'])
+                df.insert(1, 'TITULO_FILME', df.pop('TITULO_FILME'))
+                df = df[df['REGISTRO_SALA'].notnull()]
+                for coluna in colunas_datas:
+                    df[coluna] = pd.to_datetime(df[coluna], errors='coerce', dayfirst=True)
+                for coluna in colunas_inteiros:
+                    df[coluna] = pd.to_numeric(df[coluna], errors='coerce').fillna(0).astype(int)
+                df.columns = [col.lower() for col in df.columns]
+                df.to_sql("bilheteria", engine, index=False, if_exists='append')
+                print(f"Arquivo Carregado no Bando de dados: {arquivo}")
+
+                dataframe.append(df)
+
+        df_bilheteria = pd.concat(dataframe, ignore_index=True)     
+
+
         nome_arquivo_saida = os.path.join(caminho_saida, "bilheteria_diaria_tratada.csv")
         df_bilheteria.to_csv(nome_arquivo_saida, sep=';', index=False, encoding='utf-8')
-        df_bilheteria.to_sql("bilheteria", engine, index=False, if_exists='append')
         print(f"Salvo com sucesso em: {nome_arquivo_saida}")
-        # dataframe = []
-        # for arquivo in os.listdir(caminho_arquivo):as
-        #     if arquivo.endswith('.csv') and anos:
-        #         ano_encontrado = anos in arquivo
-        #         if anos == 'TODOS' or ano_encontrado:
-        #             caminho_completo = os.path.join(caminho_arquivo, arquivo)
-        #             print(f"lendo: {caminho_completo}")
-        #             df = pd.read_csv(caminho_completo, delimiter=';', dtype=str)
-        #             df['NOME_ARQUIVO'] = arquivo
-        #             dataframe.append(df)
-        #             print(f"lido: {caminho_completo}")
-        # df_final = pd.concat(dataframe, ignore_index=True)
-        # print("passou concat")
-        # if estados and estados != "TODOS":
-        #     df_final = df_final[df_final['UF_SALA_COMPLEXO'] == estados]
-        # df_final['TITULO_FILME'] = df_final.apply(lambda row: row['TITULO_BRASIL'] 
-        #                                         if pd.notnull(row['TITULO_BRASIL'])
-        #                                         else row['TITULO_ORIGINAL'], axis=1)
-        # df_final.insert(1, 'TITULO_FILME', df_final.pop('TITULO_FILME'))
-        # df_bilheteria = df_final[df_final['REGISTRO_SALA'].notnull()]
-        # nome_arquivo_saida = os.path.join(caminho_saida, "bilheteria_diaria_tratada.csv")
-        # df_bilheteria.to_csv(nome_arquivo_saida, sep=';', index=False, encoding='utf-8')
-        # df_bilheteria.to_sql("bilheteria", engine, index=False, if_exists='append')
-        # return df_bilheteria
-        
+
+       
 
 
     @task
-    def d_cinemas_salas(caminho, caminho_saida, estados,database, host):
-        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@{host}:5432/{database}") ##172.20.0.3
+    def d_cinemas_salas(caminho, caminho_saida, estados,database, senha, host):
+        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
         colunas_datas = ['DATA_SITUACAO_SALA', 'DATA_INICIO_FUNCIONAMENTO_SALA', 'DATA_SITUACAO_COMPLEXO']
         colunas_inteiros = ['ASSENTOS_SALA','ASSENTOS_CADEIRANTES','ASSENTOS_MOBILIDADE_REDUZIDA','ASSENTOS_OBESIDADE','ACESSO_ASSENTOS_COM_RAMPA']
         df_sala = pd.read_csv(caminho, delimiter=';', dtype=str)
@@ -194,19 +191,11 @@ def cinema2026():
         
         return print(f"d_cinemas salvo com sucesso no banco de dados: {database}")
 
-        # df_sala = pd.read_csv(caminho, delimiter=';', dtype=str)
-        # if estados:
-        #     df_sala = df_sala[df_sala['UF_COMPLEXO'] == estados]
-        # # df_sala = df_sala[df_sala['UF_COMPLEXO'] == estados]
-        # nome_arquivo_saida = os.path.join(caminho_saida, "d_cinema.csv")
-        # df_sala.to_csv(nome_arquivo_saida, sep=';', index=False, encoding='utf-8')
-        # print(f"d_cinemas salvo com sucesso em: {nome_arquivo_saida}")
-        # df_sala.to_sql("salas", engine, index=False, if_exists='replace')
-        # return df_sala
 
     @task
-    def d_filmes(caminho, colunas,caminho_saida, database, host):
-        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@{host}:5432/{database}") ##172.20.0.3
+    def d_filmes(caminho, colunas,caminho_saida, database, senha,  host):
+        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
         df_filmes = pd.read_csv(caminho, delimiter=';',dtype=str, usecols=colunas)
         df_filmes = df_filmes.drop_duplicates(subset=['cpb_roe'])
         df_filmes['nacionalidade'] = np.where(df_filmes['pais_obra'] == 'BRASIL', 'Brasileiro', 'Internacional')
@@ -217,17 +206,12 @@ def cinema2026():
         df_filmes.to_sql("filmes", engine, index=False, if_exists='replace')
 
         return df_filmes   
-        # df_filmes = pd.read_csv(caminho, delimiter=';',dtype=str, usecols=colunas)
-        # df_filmes = df_filmes.drop_duplicates(subset=['CPB_ROE'])
-        # nome_arquivo_saida = os.path.join(caminho_saida, "d_filmes.csv")
-        # df_filmes.to_csv(nome_arquivo_saida, sep=';',index=False, encoding='utf-8')
-        # print(f"d_filmes salvo com sucesso em: {nome_arquivo_saida}")
-        # df_filmes.to_sql("filmes", engine, index=False, if_exists='replace')
-        # return df_filmes
+
 
     @task
-    def lancamentos (caminhodist,caminho_saida,database, host):
-        engine = create_engine(f"postgresql+psycopg2://postgres:postgres@{host}:5432/{database}") ##172.20.0.3
+    def lancamentos (caminhodist,caminho_saida,database,senha, host):
+        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
         colunas_datas = ['data_lancamento_obra']
         colunas_inteiros = ['publico_total']
         colunas_moeda = ['renda_total']
@@ -254,14 +238,10 @@ def cinema2026():
 
         return df_lancamento
 
-        # df_lancamento = pd.read_csv(caminhodist, delimiter=';',dtype=str)
-        # df_lancamento['PAIS_OBRA'] = np.where(df_lancamento['PAIS_OBRA'] == 'BRASIL', 'NACIONAL', 'ESTRANGEIRO')
-        # nome_arquivo_saida = os.path.join(caminho_saida, "lancamentos.csv")
-        # df_lancamento.to_csv(nome_arquivo_saida, sep=';',index=False, encoding='utf-8')
-        # print(engine)
-        # df_lancamento.to_sql("lancamentos", engine, index=False, if_exists='replace')
-        # print(f"lancamentos salvo com sucesso em: {nome_arquivo_saida}")
-        # return 
+
+
+
+
 
     # @task
     # def upload_to_postgres(df, table_name, database, user, password):
@@ -296,6 +276,7 @@ def cinema2026():
                 caminho_saida = "/opt/airflow/cinema2026/data/processados"
                 ,database = "{{ params.database }}"
                 ,host="{{ params.host }}"
+                ,senha="{{ params.senha }}"
                 )
     
 
@@ -315,6 +296,7 @@ def cinema2026():
                 estados = "{{ params.estados }}"
                 ,database = "{{ params.database }}"
                 ,host="{{ params.host }}"
+                ,senha="{{ params.senha }}"
     )
     
     mover_cinemas_csv = BashOperator(
@@ -333,6 +315,7 @@ def cinema2026():
         "/opt/airflow/cinema2026/data/processados",
         database = "{{ params.database }}"
         ,host="{{ params.host }}"
+        ,senha="{{ params.senha }}"
         )
     
     mover_distribuidoras_csv = BashOperator(
@@ -348,9 +331,19 @@ def cinema2026():
          "/opt/airflow/cinema2026/data/processados",
          database = "{{ params.database }}"
         ,host="{{ params.host }}"
+        ,senha="{{ params.senha }}"
          )
     
 
+    dbt_cinema = DbtTaskGroup(
+            group_id="camada_transformacao_dbt",
+            project_config=ProjectConfig(DBT_PROJECT_PATH),
+            profile_config=profile_config,
+            render_config=RenderConfig(
+                select=["path:models/cinema"]
+            ),
+            operator_args={"install_deps": True},
+        )
 
 
 
@@ -364,7 +357,7 @@ def cinema2026():
     end = EmptyOperator(task_id = 'end')
 
 
-    start >> downloadbilheteria >> unzipbilheteria >> etl_bilheteria >> etl_filmes >> mover_zip_bilheteria >> mover_bilheteria_csv >> end
+    start >> downloadbilheteria >> unzipbilheteria >> etl_bilheteria >> etl_filmes >> mover_zip_bilheteria >> mover_bilheteria_csv >> dbt_cinema >> end
     start >> downloadcinemas >> etl_cinema >> mover_cinemas_csv >> end
     start >> downloadlancamentos >> elt_lancamentos >> mover_distribuidoras_csv >> end
 

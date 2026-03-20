@@ -40,7 +40,7 @@ x-airflow-common:
       condition: service_healthy
 
 services:
-
+  
   # spark-master:
   #   image: docker.io/bitnami/spark:3.5.1
   #   container_name: spark-master
@@ -357,6 +357,38 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+  db:
+    image: postgres:latest
+    container_name: postgres_db
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_ui
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      # Isso aqui faz o pgAdmin ler as configurações de servidores automaticamente
+      PGADMIN_CONFIG_SERVER_MODE: 'True'
+    ports:
+      - "5050:80"
+    volumes:
+      # Se quiser que o pgAdmin já venha configurado, você pode montar um arquivo servers.json
+      # Mas para começar, apenas o acesso via browser já resolve!
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
 volumes:
   postgres-db-volume:
+  postgres_data:
+  pgadmin_data:

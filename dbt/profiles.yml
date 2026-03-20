@@ -5,11 +5,11 @@ cinema: # Este nome deve ser igual ao 'profile:' dentro do dbt_project.yml do ci
   outputs:
     dev:
       type: postgres
-      host: 172.20.0.3
+      host: 172.19.0.3
       user: postgres
       pass: nelio  # sua senha do banco
       port: 5432
-      dbname: cinema_RR
+      dbname: cinema_teste
       schema: public
       threads: 3
 
