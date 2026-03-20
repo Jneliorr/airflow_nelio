@@ -1,16 +1,17 @@
 from airflow.sdk import dag, task
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.empty import EmptyOperator
-from airflow.models.param import Param, ParamsDict
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.empty import EmptyOperator
+from airflow.providers.standard.operators.bash import BashOperator
+from airflow.sdk import Param
+from airflow.sdk.definitions.param import ParamsDict
 from sqlalchemy import create_engine, VARCHAR, Integer,Date
 import os
 import pandas as pd
 from datetime import datetime
 import zipfile
 import numpy as np
-from airflow.operators.bash import BashOperator
 import requests
 from cosmos import DbtDag, ProjectConfig, ProfileConfig, RenderConfig
 from cosmos.profiles import PostgresUserPasswordProfileMapping
@@ -18,6 +19,12 @@ from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, RenderConfig
 from cosmos.profiles import PostgresUserPasswordProfileMapping
 from datetime import datetime
 from pathlib import Path
+
+
+
+# Capturando as variáveis do seu ambiente Docker
+USER = os.getenv('DB_USER')
+PASSWORD = os.getenv('DB_PASSWORD')
 
 params = {
         "Usuario": Param(
@@ -36,23 +43,12 @@ params = {
             default='RR'
             ,type="string"
             ,description="Estado Filtrado")
-    ,'senha': Param(
-        default='nelio'
-        ,type="string"
-        ,description="Senha para subir ao postgres")
     ,'database': Param(
-        default='cinema_teste'
+        default='cinema_brasil'
         ,type="string"
-        ,enum=["cinema_teste","cinema_RR","cinema_BR","cinema_RJ"]
+        ,enum=["cinema_teste","cinema_RR","cinema_BR","cinema_RJ","cinema_brasil"]
         ,description="Escolher o nome do banco de dados para subir os dados tratados")
 
-    ,'host': Param(
-        default="172.19.0.2"
-        ,type='string'
-        ,description="""
-        Escolher o ip do docker  "172.19.0.3","172.20.0.3","172.19.0.2"
-        """        
-    )
     }
 
 # Configuração de onde o dbt está no seu Docker/Worker
@@ -128,10 +124,9 @@ def cinema2026():
                     print(f"Extraído: {file_name}")
 
     @task
-    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida,database, senha, host):     
-        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
-        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
-            ##172.20.0.3
+    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida,database):     
+        engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/{database}")
+        print(f"lendo: {engine}")
         dataframe = []
         colunas_datas = ['DATA_EXIBICAO', 'SESSAO']
         colunas_inteiros = ['PUBLICO']
@@ -167,9 +162,9 @@ def cinema2026():
 
 
     @task
-    def d_cinemas_salas(caminho, caminho_saida, estados,database, senha, host):
-        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
-        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+    def d_cinemas_salas(caminho, caminho_saida, estados,database):
+        engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/{database}")
+        print(f"lendo: {engine}")
         colunas_datas = ['DATA_SITUACAO_SALA', 'DATA_INICIO_FUNCIONAMENTO_SALA', 'DATA_SITUACAO_COMPLEXO']
         colunas_inteiros = ['ASSENTOS_SALA','ASSENTOS_CADEIRANTES','ASSENTOS_MOBILIDADE_REDUZIDA','ASSENTOS_OBESIDADE','ACESSO_ASSENTOS_COM_RAMPA']
         df_sala = pd.read_csv(caminho, delimiter=';', dtype=str)
@@ -193,9 +188,9 @@ def cinema2026():
 
 
     @task
-    def d_filmes(caminho, colunas,caminho_saida, database, senha,  host):
-        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
-        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+    def d_filmes(caminho, colunas,caminho_saida, database):
+        engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/{database}")
+        print(f"lendo: {engine}")
         df_filmes = pd.read_csv(caminho, delimiter=';',dtype=str, usecols=colunas)
         df_filmes = df_filmes.drop_duplicates(subset=['cpb_roe'])
         df_filmes['nacionalidade'] = np.where(df_filmes['pais_obra'] == 'BRASIL', 'Brasileiro', 'Internacional')
@@ -209,9 +204,9 @@ def cinema2026():
 
 
     @task
-    def lancamentos (caminhodist,caminho_saida,database,senha, host):
-        print (f"acessando: postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
-        engine = create_engine(f"postgresql+psycopg2://postgres:{senha}@{host}:5432/{database}")
+    def lancamentos (caminhodist,caminho_saida,database):
+        engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/{database}")
+        print(f"lendo: {engine}")
         colunas_datas = ['data_lancamento_obra']
         colunas_inteiros = ['publico_total']
         colunas_moeda = ['renda_total']
@@ -239,19 +234,6 @@ def cinema2026():
         return df_lancamento
 
 
-
-
-
-
-    # @task
-    # def upload_to_postgres(df, table_name, database, user, password):
-    #     # engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{database}')
-    #     engine = create_engine(f"postgresql+psycopg2://{user}:{password}@172.17.0.2:5432/{database}")
-    #     print(engine)
-    #     df = pd.read_csv(df, sep=';')
-    #     df.to_sql(table_name, engine, index=False, if_exists='replace')
-
-
 #### FIM DA FUNÇÃO / CHAMADAS DAS FUNÇÕES PARA CADA TAREFA ###
 
     downloadbilheteria = download_file.override(task_id="download_bilheteria")(
@@ -275,8 +257,6 @@ def cinema2026():
                 row= None,
                 caminho_saida = "/opt/airflow/cinema2026/data/processados"
                 ,database = "{{ params.database }}"
-                ,host="{{ params.host }}"
-                ,senha="{{ params.senha }}"
                 )
     
 
@@ -295,8 +275,6 @@ def cinema2026():
                 caminho_saida = "/opt/airflow/cinema2026/data/processados", 
                 estados = "{{ params.estados }}"
                 ,database = "{{ params.database }}"
-                ,host="{{ params.host }}"
-                ,senha="{{ params.senha }}"
     )
     
     mover_cinemas_csv = BashOperator(
@@ -314,8 +292,6 @@ def cinema2026():
     elt_lancamentos = lancamentos("/opt/airflow/cinema2026/data/raw/unzip/distribuidoras/lancamentos-comerciais-por-distribuidoras.csv",
         "/opt/airflow/cinema2026/data/processados",
         database = "{{ params.database }}"
-        ,host="{{ params.host }}"
-        ,senha="{{ params.senha }}"
         )
     
     mover_distribuidoras_csv = BashOperator(
@@ -326,12 +302,9 @@ def cinema2026():
 ###-------------------------------------------------------------------------------------------------------------------------------------------------#####
 
     etl_filmes = d_filmes("/opt/airflow/cinema2026/data/processados/bilheteria_diaria_tratada.csv",
-        #  ['CPB_ROE', 'TITULO_FILME', 'TITULO_ORIGINAL', 'TITULO_BRASIL', 'PAIS_OBRA'],
         ['cpb_roe', 'titulo_filme', 'titulo_original', 'titulo_brasil', 'pais_obra'],
          "/opt/airflow/cinema2026/data/processados",
          database = "{{ params.database }}"
-        ,host="{{ params.host }}"
-        ,senha="{{ params.senha }}"
          )
     
 
@@ -346,12 +319,6 @@ def cinema2026():
         )
 
 
-
-
-
-
-    # upload = upload_to_postgres(caminho = "/opt/airflow/cinema2026/data/processados/bilheteria_diaria_tratada.csv", table_name = "{{ params.table_name }}", database = "{{ params.database }}", user = "{{ params.user }}", password = "{{ params.password }}")
-    
     
     start = EmptyOperator(task_id = 'start')
     end = EmptyOperator(task_id = 'end')

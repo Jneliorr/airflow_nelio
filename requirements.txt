@@ -1,3 +1,11 @@
 selenium
 dbt-core
 dbt-postgres
+
+' imports
+astronomer-cosmos
+dbt-postgres
+pandas
+sqlalchemy
+psycopg2-binary
+requests
