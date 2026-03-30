@@ -35,14 +35,14 @@ params = {
         Escolher usuario 
         """
         )
-    ,'anos': Param(
-            default='2026-02'
-            ,type="string"
-            ,description="Escolher ano ou Todos: 2026 ou 2026-02 ou TODOS")
-    ,'estados': Param(
-            default='RR'
-            ,type="string"
-            ,description="Estado Filtrado")
+    # ,'anos': Param(
+    #         default='2026-02'
+    #         ,type="string"
+    #         ,description="Escolher ano ou Todos: 2026 ou 2026-02 ou TODOS")
+    # ,'estados': Param(
+    #         default='RR'
+    #         ,type="string"
+    #         ,description="Estado Filtrado")
     ,'database': Param(
         default='cinema_brasil'
         ,type="string"
@@ -109,7 +109,7 @@ def cinema2026():
 
     
     @task
-    def unzip_file(zip_path, file_save, anos=""):
+    def unzip_file(zip_path, file_save):
 
         zip_name = os.path.splitext(os.path.basename(zip_path))[0]
         extract_to = os.path.join(file_save, zip_name)
@@ -119,25 +119,25 @@ def cinema2026():
             print(f"Descompactando: {zip_path} para {extract_to}")
             for file_name in zip_ref.namelist():
                 print(f"Verificando arquivo: {file_name} para extração")
-                if anos == 'TODOS' or str(anos) in file_name:
-                    zip_ref.extract(file_name, extract_to)
-                    print(f"Extraído: {file_name}")
+                # if anos == 'TODOS' or str(anos) in file_name:
+                zip_ref.extract(file_name, extract_to)
+                print(f"Extraído: {file_name}")
 
     @task
-    def read_bilheteria(caminho_arquivo,anos,estados, row, caminho_saida,database):     
+    def read_bilheteria(caminho_arquivo, row, caminho_saida,database):     
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/{database}")
         print(f"lendo: {engine}")
         dataframe = []
         colunas_datas = ['DATA_EXIBICAO', 'SESSAO']
         colunas_inteiros = ['PUBLICO']
         for arquivo in os.listdir(caminho_arquivo):
-            if arquivo.endswith('.csv') and anos == "" or str(anos) in arquivo:
+            if arquivo.endswith('.csv'): #and anos == "" or str(anos) in arquivo:
                 caminho_completo = os.path.join(caminho_arquivo, arquivo)
                 print(f"Processando arquivo: {caminho_completo}")
                 df = pd.read_csv(caminho_completo, delimiter=';', dtype=str)
                 df['NOME_ARQUIVO'] = arquivo
-                if estados:
-                    df = df[df['UF_SALA_COMPLEXO'] == estados]
+                # if estados:
+                #     df = df[df['UF_SALA_COMPLEXO'] == estados]
                 df['TITULO_FILME'] = df['TITULO_BRASIL'].fillna(df['TITULO_ORIGINAL'])
                 df.insert(1, 'TITULO_FILME', df.pop('TITULO_FILME'))
                 df = df[df['REGISTRO_SALA'].notnull()]
@@ -162,15 +162,15 @@ def cinema2026():
 
 
     @task
-    def d_cinemas_salas(caminho, caminho_saida, estados,database):
+    def d_cinemas_salas(caminho, caminho_saida, database):
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/{database}")
         print(f"lendo: {engine}")
         colunas_datas = ['DATA_SITUACAO_SALA', 'DATA_INICIO_FUNCIONAMENTO_SALA', 'DATA_SITUACAO_COMPLEXO']
         colunas_inteiros = ['ASSENTOS_SALA','ASSENTOS_CADEIRANTES','ASSENTOS_MOBILIDADE_REDUZIDA','ASSENTOS_OBESIDADE','ACESSO_ASSENTOS_COM_RAMPA']
         df_sala = pd.read_csv(caminho, delimiter=';', dtype=str)
         print(f"lendo: {caminho}")
-        if estados:
-            df_sala = df_sala[df_sala['UF_COMPLEXO'] == estados]
+        # if estados:
+        #     df_sala = df_sala[df_sala['UF_COMPLEXO'] == estados]
         for coluna in colunas_datas:
             df_sala[coluna] = pd.to_datetime(df_sala[coluna], errors='coerce', dayfirst=True)
         for coluna in colunas_inteiros:
@@ -243,7 +243,7 @@ def cinema2026():
     unzipbilheteria = unzip_file.override(task_id="unzip_bilheteria")(
         zip_path = "/opt/airflow/cinema2026/data/raw/zip/bilheteria_diaria/bilheteria-diaria-obras-por-exibidoras-csv.zip",
         file_save="/opt/airflow/cinema2026/data/raw/unzip/bilheteria-diaria",
-        anos = "{{ params.anos }}"
+        # anos = "{{ params.anos }}"
     )
 
     mover_zip_bilheteria = BashOperator(
@@ -252,8 +252,8 @@ def cinema2026():
     )
 
     etl_bilheteria =  read_bilheteria(caminho_arquivo = "/opt/airflow/cinema2026/data/raw/unzip/bilheteria-diaria/bilheteria-diaria-obras-por-exibidoras-csv",
-                anos = "{{ params.anos }}",
-                estados = "{{ params.estados }}",
+                # anos = "{{ params.anos }}",
+                # estados = "{{ params.estados }}",
                 row= None,
                 caminho_saida = "/opt/airflow/cinema2026/data/processados"
                 ,database = "{{ params.database }}"
@@ -273,8 +273,8 @@ def cinema2026():
     
     etl_cinema = d_cinemas_salas(caminho= "/opt/airflow/cinema2026/data/raw/unzip/salas-de-exibicao/salas-de-exibicao-e-complexos.csv", 
                 caminho_saida = "/opt/airflow/cinema2026/data/processados", 
-                estados = "{{ params.estados }}"
-                ,database = "{{ params.database }}"
+                # estados = "{{ params.estados }}"
+                database = "{{ params.database }}"
     )
     
     mover_cinemas_csv = BashOperator(
