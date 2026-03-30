@@ -34,24 +34,4 @@ Manutenção: Movimentação de arquivos processados para pastas de histórico (
 O resultado final pode ser explorado através do dashboard interativo:
 🔗 Acesse o Dashboard no Power BI aqui
 
-🚀 Como Executar
-Certifique-se de ter o Docker instalado e execute:
 
-Bash
-# Clonar o repositório
-git clone https://github.com/Jneliorr/seu-repositorio.git
-
-# Subir o ambiente (Airflow + Postgres)
-docker-compose up -d
-As DAGs estarão disponíveis em localhost:8080.
-
-📂 Estrutura do Repositório
-dags/: Definições dos fluxos do Airflow.
-
-dbt/: Modelos de transformação SQL.
-
-jobs/: Scripts Python de processamento inicial.
-
-notebooks/: Análises exploratórias (EDA).
-
-config/: Arquivos de configuração de ambiente.
