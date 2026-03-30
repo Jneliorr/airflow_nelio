@@ -1,9 +1,9 @@
 # Usa a imagem oficial do Airflow 3.0 como base
-FROM apache/airflow:3.1.7
+FROM apache/airflow:3.1.
 
 USER root
 
-# Instala dependências do sistema e o Google Chrome
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -18,8 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 USER airflow
 
-# Instala o Selenium, dbt e o adaptador Postgres
-# Dica: dbt-postgres já instala o dbt-core automaticamente
 RUN pip install --no-cache-dir \
     selenium \
     webdriver-manager \
