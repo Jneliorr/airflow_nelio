@@ -13,14 +13,15 @@ cinema: # Este nome deve ser igual ao 'profile:' dentro do dbt_project.yml do ci
       schema: public
       threads: 3
 
-# tre: # Já deixamos pronto para o seu próximo projeto
-#   target: dev
-#   outputs:
-#     dev:
-#       type: postgres
-#       host: db
-#       user: postgres
-#       pass: nelio
-#       dbname: tre_database
-#       schema: public
-#       threads: 4
+eleicao: # Já deixamos pronto para o seu próximo projeto
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: db
+      user: postgres
+      pass: postgres  # sua senha do banco
+      port: 5432
+      dbname: eleicao_RR
+      schema: public
+      threads: 3
