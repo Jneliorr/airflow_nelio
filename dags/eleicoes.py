@@ -268,7 +268,20 @@ def eleicao():
 
     @task
     def candidato(file_csv):
-
+        colunas_leitura = ['dt_geracao', 'hh_geracao', 'ano_eleicao', 'cd_tipo_eleicao',
+       'nm_tipo_eleicao', 'nr_turno', 'cd_eleicao', 'ds_eleicao', 'dt_eleicao',
+       'tp_abrangencia', 'sg_uf', 'sg_ue', 'nm_ue', 'cd_cargo', 'ds_cargo',
+       'sq_candidato', 'nr_candidato', 'nm_candidato', 'nm_urna_candidato',
+       'nm_social_candidato', 'nr_cpf_candidato', 'ds_email',
+       'cd_situacao_candidatura', 'ds_situacao_candidatura', 'tp_agremiacao',
+       'nr_partido', 'sg_partido', 'nm_partido', 'nr_federacao',
+       'nm_federacao', 'sg_federacao', 'ds_composicao_federacao',
+       'sq_coligacao', 'nm_coligacao', 'ds_composicao_coligacao',
+       'sg_uf_nascimento', 'dt_nascimento', 'nr_titulo_eleitoral_candidato',
+       'cd_genero', 'ds_genero', 'cd_grau_instrucao', 'ds_grau_instrucao',
+       'cd_estado_civil', 'ds_estado_civil', 'cd_cor_raca', 'ds_cor_raca',
+       'cd_ocupacao', 'ds_ocupacao', 'cd_sit_tot_turno', 'ds_sit_tot_turno',
+       'id_candidato', 'nome_foto', 'url_foto']
         dfs = []
         lista_links = []
         # Configurações do Cloudflare
@@ -294,11 +307,12 @@ def eleicao():
             full_path = os.path.join(file_csv, i)
             if full_path.endswith('RR.csv'):
                 print(f"Lendo arquivo: {full_path}")
-                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str)
-                df['SG_UE'] = df['SG_UE'].astype(str).str.lstrip("0")
-                df.loc[df['NM_UE'] == "RORAIMA", 'SG_UE'] = '3018'
-                df['NM_CANDIDATO'] = (
-                    df['NM_URNA_CANDIDATO']
+                df = pd.read_csv(full_path, encoding='latin-1', sep=';',usecols=lambda col: col.strip().lower() in colunas_leitura,dtype=str)
+                df.columns = [col.strip().lower() for col in df.columns]
+                df['sg_ue'] = df['sg_ue'].astype(str).str.lstrip("0")
+                df.loc[df['nm_ue'] == "RORAIMA", 'sg_ue'] = '3018'
+                df['nm_candidato'] = (
+                    df['nm_urna_candidato'] 
                     .fillna('')
                     .astype(str)
                     .str.normalize('NFKD')
@@ -306,7 +320,7 @@ def eleicao():
                     .str.decode('utf-8')
                     .str.replace(r'[^A-Za-z0-9]+', '', regex=True)
                 )
-                df['ID_CANDIDATO'] = df['ANO_ELEICAO'] + df['NR_TURNO'] +  df['CD_CARGO'] + df['SG_UE'] +  df['NR_CANDIDATO'] + df['NM_CANDIDATO']
+                df['id_candidato'] = df['ano_eleicao'] + df['nr_turno'] +  df['cd_cargo'] + df['sg_ue'] +  df['nr_candidato'] + df['nm_candidato']
                 dfs.append(df)
 
 
@@ -326,8 +340,7 @@ def eleicao():
         fotos, 
         how='left', 
         right_on='idCandidatos',
-        left_on='SQ_CANDIDATO').drop('idCandidatos', axis=1)
-        df.columns = [col.lower() for col in df.columns]
+        left_on='sq_candidato').drop('idCandidatos', axis=1) 
         df.drop_duplicates(['id_candidato'], inplace=True)
 
         df.to_sql("dcandidato", engine, index=False, if_exists='append')
