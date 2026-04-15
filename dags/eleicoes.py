@@ -193,31 +193,42 @@ def eleicao():
     def turnos (file_csv):
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/eleicao_RR")
         # dfs = []
-        try:
-            colunas_resultado = {col['name'] for col in inspect(engine).get_columns('resultado')}
-        except Exception as err:
-            print(f"Nao foi possivel ler o schema da tabela resultado: {err}")
-            colunas_resultado = None
-        colunas_num = ['NR_TURMA_APURADORA', 'NR_JUNTA_APURADORA', 'QT_VOTOS', 'QT_APTOS', 'QT_COMPARECIMENTO', 'QT_ABSTENCOES']
-        colunas_data = ['DT_GERACAO', 'DT_PLEITO']
-        colunas_dataHora = ['DT_BU_RECEBIDO','DT_CARGA_URNA_EFETIVADA','DT_ABERTURA','DT_ENCERRAMENTO','DT_EMISSAO_BU']
-        colunas_hora = ['HR_GERACAO']
-        for bweb in os.listdir(file_csv):
-            full_path = os.path.join(file_csv, bweb)
+        colunas_leitura =[
+            'dt_geracao', 'hh_geracao', 'ano_eleicao', 'cd_tipo_eleicao',
+        'nm_tipo_eleicao', 'cd_pleito', 'dt_pleito', 'nr_turno', 'cd_eleicao',
+        'ds_eleicao', 'sg_uf', 'cd_municipio', 'nm_municipio', 'nr_zona',
+        'nr_secao', 'nr_local_votacao', 'cd_cargo_pergunta',
+        'ds_cargo_pergunta', 'nr_partido', 'sg_partido', 'nm_partido',
+        'dt_bu_recebido', 'qt_aptos', 'qt_comparecimento', 'qt_abstencoes',
+        'cd_tipo_urna', 'ds_tipo_urna', 'cd_tipo_votavel', 'ds_tipo_votavel',
+        'nr_votavel', 'nm_votavel', 'qt_votos', 'nr_urna_efetivada',
+        'cd_carga_1_urna_efetivada', 'cd_carga_2_urna_efetivada',
+        'cd_flashcard_urna_efetivada', 'dt_carga_urna_efetivada',
+        'ds_cargo_pergunta_secao', 'ds_agregadas', 'dt_abertura',
+        'dt_encerramento', 'qt_eleitores_biometria_nh', 'dt_emissao_bu',
+        'nr_junta_apuradora', 'nr_turma_apuradora', 'id_zona_secao_municipio',
+        'nm_candidato', 'id_candidato'
+        ]
+        colunas_num = ['nr_turma_apuradora', 'nr_junta_apuradora', 'qt_votos', 'qt_aptos', 'qt_comparecimento', 'qt_abstencoes']
+        colunas_data = ['dt_geracao', 'dt_pleito']
+        colunas_dataHora = ['dt_bu_recebido', 'dt_carga_urna_efetivada', 'dt_abertura', 'dt_encerramento', 'dt_emissao_bu']
+        colunas_hora = ['hr_geracao']
+        for arquivo in os.listdir(file_csv):
+            full_path = os.path.join(file_csv, arquivo)
             if full_path.endswith('.csv'):
-                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,nrows=10)
+                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura,nrows=10)
                 for col in colunas_num:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
                 for col in colunas_data:
                     if col in df.columns:
-                        df[col] = pd.to_datetime(df[col], errors='coerce').dt.date
+                        df[col] = pd.to_datetime(df[col], dayfirst=True, format='%d/%m/%Y', errors='coerce').dt.date
                 for col in colunas_hora:
                     if col in df.columns:
-                        df[col] = pd.to_datetime(df[col], errors='coerce').dt.time
+                        df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
                 for col in colunas_dataHora:
                     if col in df.columns:
-                        df[col] = pd.to_datetime(df[col], errors='coerce')
+                        df[col] = pd.to_datetime(df[col], dayfirst=True,  format='%d/%m/%Y %H:%M:%S', errors='coerce').dt.date
                 df['ID_ZONA_SECAO_MUNICIPIO'] = df['ANO_ELEICAO'] + df['NR_TURNO'] + df['NR_ZONA'] +  df['NR_SECAO'] +  df['CD_MUNICIPIO']
                 df['NM_CANDIDATO'] = (
                     df['NM_VOTAVEL']
@@ -230,19 +241,9 @@ def eleicao():
                 )
                 df['ID_CANDIDATO'] = df['ANO_ELEICAO'] + df['NR_TURNO'] +  df['CD_CARGO_PERGUNTA'] + df['CD_MUNICIPIO'] +  df['NR_VOTAVEL'] + df['NM_CANDIDATO']
                 # dfs.append(df)
-                print(f"Carregando o arquivo no banco de archives: {bweb}")
-                df.columns = [col.lower() for col in df.columns]
-                if colunas_resultado is not None:
-                    colunas_validas = [col for col in df.columns if col in colunas_resultado]
-                    colunas_ignoradas = [col for col in df.columns if col not in colunas_resultado]
-                    if colunas_ignoradas:
-                        print(f"Colunas ignoradas por nao existirem em resultado: {colunas_ignoradas}")
-                    if not colunas_validas:
-                        print(f"Nenhuma coluna valida para inserir no arquivo: {bweb}")
-                        continue
-                    df = df[colunas_validas]
+                print(f"Carregando o arquivo no banco de archives: {arquivo}")
                 df.to_sql("resultado", engine, index=False, if_exists='append')
-                print(f"Arquivo Carregado no Bando de archives: {bweb}")
+                print(f"Arquivo Carregado no Bando de archives: {arquivo}")
 
         return print("Todos os arquivos foram processados e carregados no banco de archives com sucesso!")
     
