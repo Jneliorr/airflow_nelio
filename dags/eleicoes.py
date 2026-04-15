@@ -116,12 +116,12 @@ def eleicao():
         'nm_local_votacao_original', 'ds_endereco_locvt_original',
         'id_zona_secao_municipio'
         ]
-        dfs = []
+        # dfs = []
         colunas_num = ['qt_eleitor_secao', 'qt_eleitor_eleicao_federal', 'qt_eleitor_eleicao_estadual','qt_eleitor_eleicao_municipal']
         colunas_data = ['dt_geracao','dt_eleicao']
         colunas_hora = ['hh_geracao']
-        for bweb in os.listdir(path):
-            full_path = os.path.join(path, bweb)
+        for arquivo in os.listdir(path):
+            full_path = os.path.join(path, arquivo)
             if full_path.endswith('.csv'):
                 print(f"Lendo o arquivo: {full_path}")
                 df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura, nrows=10)
@@ -137,47 +137,62 @@ def eleicao():
                         df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
                 df['aa_eleicao'] = df['aa_eleicao'].astype(str).str.lstrip("0")
                 df['id_zona_secao_municipio'] = df['aa_eleicao'] +  df['nr_turno'] + df['nr_zona'] +  df['nr_secao'] +  df['cd_municipio']
-                df.to_sql("perfil_eleitorado", engine, index=False, if_exists='append')
+                # dfs.append(df)
+                print(f"Carregando o arquivo na base de dados: {arquivo}")
+                df.to_sql("local_votacao", engine, index=False, if_exists='append')
+                print(f"Arquivo Carregado na base de dados: {arquivo}")
 
-                dfs.append(df)
 
-            return print("Todos os arquivos foram processados e carregados no banco de archives com sucesso!")
+        return print("Todos os arquivos foram processados e carregados na base de dados com sucesso!")
 
     @task
     def perfil (file_csv):
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/eleicao_RR")
-        dfs = []
-        colunas_num = ['QT_ELEITORES_INC_NM_SOCIAL', 'QT_ELEITORES_DEFICIENCIA', 'QT_ELEITORES_BIOMETRIA','QT_ELEITORES_PERFIL']
-        colunas_data = ['DT_GERACAO']
-        colunas_hora = ['HH_GERACAO']
-        for bweb in os.listdir(file_csv):
-            full_path = os.path.join(file_csv, bweb)
+        colunas_leitura = [
+        'dt_geracao', 'hh_geracao', 'ano_eleicao', 'sg_uf', 'cd_municipio',
+        'nm_municipio', 'nr_zona', 'nr_secao', 'nr_local_votacao',
+        'nm_local_votacao', 'cd_genero', 'ds_genero', 'cd_estado_civil',
+        'ds_estado_civil', 'cd_faixa_etaria', 'ds_faixa_etaria',
+        'cd_grau_escolaridade', 'ds_grau_escolaridade', 'cd_raca_cor',
+        'ds_raca_cor', 'cd_identidade_genero', 'ds_identidade_genero',
+        'cd_quilombola', 'ds_quilombola', 'cd_interprete_libras',
+        'ds_interprete_libras', 'tp_obrigatoriedade_voto',
+        'qt_eleitores_perfil', 'qt_eleitores_biometria',
+        'qt_eleitores_deficiencia', 'qt_eleitores_inc_nm_social',
+        'id_zona_secao_municipio'
+        ]
+        # dfs = []
+        colunas_num = ['qt_eleitores_inc_nm_social', 'qt_eleitores_deficiencia', 'qt_eleitores_biometria', 'qt_eleitores_perfil']
+        colunas_data = ['dt_geracao']
+        colunas_hora = ['hh_geracao']
+        for arquivo in os.listdir(file_csv):
+            full_path = os.path.join(file_csv, arquivo)
             if full_path.endswith('.csv'):
                 print(f"Lendo arquivo: {full_path}")
-                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,nrows=10)
+                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura,nrows=10)
+                df.columns = [col.strip().lower() for col in df.columns]
                 for col in colunas_num:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col]).astype('Int64')
                 for col in colunas_data:
                     if col in df.columns:
-                        df[col] = pd.to_datetime(df[col],  dayfirst=True, format='%d/%m/%Y').dt.date
+                        df[col] = pd.to_datetime(df[col], dayfirst=True, format='%d/%m/%Y', errors='coerce').dt.date
                 for col in colunas_hora:
                     if col in df.columns:
-                        df[col] = pd.to_datetime(df[col]).dt.time
-                df['ID_ZONA_SECAO_MUNICIPIO'] = df['ANO_ELEICAO'] + df['NR_ZONA'] +  df['NR_SECAO'] +  df['CD_MUNICIPIO']
-                dfs.append(df)
-                print(f"Carregando o arquivo no banco de archives: {bweb}")
-                df.columns = [col.lower() for col in df.columns]
+                        df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
+                df['id_zona_secao_municipio'] = df['ano_eleicao'] + df['nr_zona'] + df['nr_secao'] + df['cd_municipio']
+                # dfs.append(df)
+                print(f"Carregando o arquivo na base de dados: {arquivo}")
                 df.to_sql("perfil_eleitorado", engine, index=False, if_exists='append')
-                print(f"Arquivo Carregado no Bando de archives: {bweb}")
+                print(f"Arquivo Carregado na base de dados: {arquivo}")
 
-        return print("Todos os arquivos foram processados e carregados no banco de archives com sucesso!")
+        return print("Todos os arquivos foram processados e carregados na base de dados com sucesso!")
     
 
     @task
     def turnos (file_csv):
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/eleicao_RR")
-        dfs = []
+        # dfs = []
         try:
             colunas_resultado = {col['name'] for col in inspect(engine).get_columns('resultado')}
         except Exception as err:
@@ -214,7 +229,7 @@ def eleicao():
                     .str.replace(r'[^A-Za-z0-9]+', '', regex=True)
                 )
                 df['ID_CANDIDATO'] = df['ANO_ELEICAO'] + df['NR_TURNO'] +  df['CD_CARGO_PERGUNTA'] + df['CD_MUNICIPIO'] +  df['NR_VOTAVEL'] + df['NM_CANDIDATO']
-                dfs.append(df)
+                # dfs.append(df)
                 print(f"Carregando o arquivo no banco de archives: {bweb}")
                 df.columns = [col.lower() for col in df.columns]
                 if colunas_resultado is not None:
