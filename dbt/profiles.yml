@@ -25,3 +25,16 @@ eleicao: # Já deixamos pronto para o seu próximo projeto
       dbname: eleicao_RR
       schema: public
       threads: 3
+
+cnpj2026: # Já deixamos pronto para o seu próximo projeto
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: db
+      user: postgres
+      pass: postgres  # sua senha do banco
+      port: 5432
+      dbname: cnpj2026
+      schema: public
+      threads: 3

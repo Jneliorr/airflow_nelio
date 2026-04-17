@@ -1,6 +1,7 @@
 selenium
 dbt-core
 dbt-postgres
+duckdb
 
 ' imports
 astronomer-cosmos

@@ -16,7 +16,7 @@ import requests
 from cosmos import DbtDag, ProjectConfig, ProfileConfig, RenderConfig
 from cosmos.profiles import PostgresUserPasswordProfileMapping
 from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, RenderConfig
-from cosmos.profiles import PostgresUserPasswordProfileMapping
+
 from datetime import datetime
 from pathlib import Path
 
