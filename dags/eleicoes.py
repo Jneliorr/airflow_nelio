@@ -6,7 +6,7 @@ from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import Param
 from airflow.sdk.definitions.param import ParamsDict
-from sqlalchemy import create_engine, VARCHAR, Integer,Date, inspect
+from sqlalchemy import create_engine, VARCHAR, Integer,Date, inspect,text
 import os
 import pandas as pd
 from datetime import datetime
@@ -100,6 +100,7 @@ def eleicao():
     @task
     def local_votacao (path):
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/eleicao_RR")
+
         colunas_leitura = [
         'dt_geracao', 'hh_geracao', 'aa_eleicao', 'dt_eleicao', 'ds_eleicao',
         'nr_turno', 'sg_uf', 'cd_municipio', 'nm_municipio', 'nr_zona',
@@ -124,7 +125,7 @@ def eleicao():
             full_path = os.path.join(path, arquivo)
             if full_path.endswith('.csv'):
                 print(f"Lendo o arquivo: {full_path}")
-                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura, nrows=10)
+                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura)
                 df.columns = [col.strip().lower() for col in df.columns]
                 for col in colunas_num:
                     if col in df.columns:
@@ -136,7 +137,9 @@ def eleicao():
                     if col in df.columns:
                         df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
                 df['aa_eleicao'] = df['aa_eleicao'].astype(str).str.lstrip("0")
-                df['id_zona_secao_municipio'] = df['aa_eleicao'] +  df['nr_turno'] + df['nr_zona'] +  df['nr_secao'] +  df['cd_municipio']
+                df['id_zona_secao_municipio'] = df['aa_eleicao'] +  df['nr_zona'] +  df['nr_secao'] +  df['cd_municipio'] #df['nr_turno']
+
+
                 # dfs.append(df)
                 print(f"Carregando o arquivo na base de dados: {arquivo}")
                 df.to_sql("local_votacao", engine, index=False, if_exists='append')
@@ -169,7 +172,7 @@ def eleicao():
             full_path = os.path.join(file_csv, arquivo)
             if full_path.endswith('.csv'):
                 print(f"Lendo arquivo: {full_path}")
-                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura,nrows=10)
+                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura)
                 df.columns = [col.strip().lower() for col in df.columns]
                 for col in colunas_num:
                     if col in df.columns:
@@ -181,6 +184,7 @@ def eleicao():
                     if col in df.columns:
                         df[col] = pd.to_datetime(df[col], format='%H:%M:%S', errors='coerce').dt.time
                 df['id_zona_secao_municipio'] = df['ano_eleicao'] + df['nr_zona'] + df['nr_secao'] + df['cd_municipio']
+                
                 # dfs.append(df)
                 print(f"Carregando o arquivo na base de dados: {arquivo}")
                 df.to_sql("perfil_eleitorado", engine, index=False, if_exists='append')
@@ -216,7 +220,8 @@ def eleicao():
         for arquivo in os.listdir(file_csv):
             full_path = os.path.join(file_csv, arquivo)
             if full_path.endswith('.csv'):
-                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura,nrows=10)
+                df = pd.read_csv(full_path, encoding='latin-1', sep=';',dtype=str,usecols=lambda col: col.strip().lower() in colunas_leitura)
+                df.columns = [col.strip().lower() for col in df.columns]
                 for col in colunas_num:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
@@ -229,9 +234,9 @@ def eleicao():
                 for col in colunas_dataHora:
                     if col in df.columns:
                         df[col] = pd.to_datetime(df[col], dayfirst=True,  format='%d/%m/%Y %H:%M:%S', errors='coerce').dt.date
-                df['ID_ZONA_SECAO_MUNICIPIO'] = df['ANO_ELEICAO'] + df['NR_TURNO'] + df['NR_ZONA'] +  df['NR_SECAO'] +  df['CD_MUNICIPIO']
-                df['NM_CANDIDATO'] = (
-                    df['NM_VOTAVEL']
+                df['id_zona_secao_municipio'] = df['ano_eleicao'] + df['nr_turno'] + df['nr_zona'] +  df['nr_secao'] +  df['cd_municipio']
+                df['nm_candidato'] = (
+                    df['nm_votavel']
                     .fillna('')
                     .astype(str)
                     .str.normalize('NFKD')
@@ -239,7 +244,9 @@ def eleicao():
                     .str.decode('utf-8')
                     .str.replace(r'[^A-Za-z0-9]+', '', regex=True)
                 )
-                df['ID_CANDIDATO'] = df['ANO_ELEICAO'] + df['NR_TURNO'] +  df['CD_CARGO_PERGUNTA'] + df['CD_MUNICIPIO'] +  df['NR_VOTAVEL'] + df['NM_CANDIDATO']
+                df['id_candidato'] = df['ano_eleicao'] + df['nr_turno'] +  df['cd_cargo_pergunta'] + df['cd_municipio'] +  df['nr_votavel'] + df['nm_candidato']
+               
+
                 # dfs.append(df)
                 print(f"Carregando o arquivo no banco de archives: {arquivo}")
                 df.to_sql("resultado", engine, index=False, if_exists='append')
@@ -302,7 +309,6 @@ def eleicao():
         )
         base_url = "https://pub-e9ede5cdf96443d58340a9a3b62a2816.r2.dev/fotosrr/" 
         engine = create_engine(f"postgresql+psycopg2://{USER}:{PASSWORD}@db:5432/eleicao_RR")
-
         for i in os.listdir(file_csv):
             full_path = os.path.join(file_csv, i)
             if full_path.endswith('RR.csv'):
@@ -328,12 +334,14 @@ def eleicao():
 
         for file in os.listdir(folder_local):
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                nome_tratado = file.replace("FRR", "RR").replace("_div", "")
                 lista_links.append({
                     "Nome_Foto": file,
-                    "URL_Foto": base_url + file
+                    "URL_Foto": base_url + nome_tratado
                 })
         fotos = pd.DataFrame(lista_links)
-        fotos['idCandidatos'] = fotos['Nome_Foto'].str[2:14]
+        # fotos['URL_Foto'] = fotos['URL_Foto'].str[:15]
+        fotos['idCandidatos'] = fotos['Nome_Foto'].str[3:15]
 
         df = pd.merge(
         dfconsulta, 
